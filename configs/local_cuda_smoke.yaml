@@ -1,0 +1,18 @@
+extends: smoke.yaml
+
+project:
+  name: mri_pet_geomc_local_cuda_smoke
+  scientific_use: false
+  claim_scope: implementation_cuda_smoke_only
+
+run:
+  mode: smoke
+  launch_dir: artifacts/smoke/local_cuda_smoke
+
+resources:
+  device: cuda
+  encoder_backend: tiny
+  require_cuda: true
+
+training:
+  precision: bf16

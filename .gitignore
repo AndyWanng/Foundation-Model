@@ -1,0 +1,34 @@
+# Python bytecode and test caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+
+# Environments and locally installed dependencies
+.venv*/
+venv*/
+.codex_test_deps/
+
+# Packaging output
+build/
+dist/
+*.egg-info/
+*.dist-info/
+
+# Pipeline-generated data and preprocessing records
+artifacts/
+cache/
+derivatives/
+
+# Machine-local configuration and tooling
+configs/server.local.yaml
+.containers/
+.idea/
+.codex/
+
+# Operating-system files
+.DS_Store
+Thumbs.db
