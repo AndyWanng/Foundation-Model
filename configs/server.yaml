@@ -1,0 +1,100 @@
+extends: smoke.yaml
+
+project:
+  name: mri_pet_geomc
+  method: shared_sat3d_geomc
+  scientific_use: true
+  claim_scope: bounded_30_subject_single_seed_geomc_feasibility
+
+run:
+  mode: full
+  # Reusing this directory resumes only when source, config, plan and input
+  # digests still match. Pass --launch-dir to create a distinct run.
+  launch_dir: /fs04/scratch2/ea78/sizhew/mri_pet_geomc_pipeline_2026-08-09/artifacts/geomc_single_seed_20260809
+
+paths:
+  artifacts_root: /fs04/scratch2/ea78/sizhew/mri_pet_geomc_pipeline_2026-08-09/artifacts
+  derivatives_root: /fs04/scratch2/ea78/sizhew/mri_pet_geomc_pipeline_2026-08-09/derivatives
+  cache_root: /fs04/scratch2/ea78/sizhew/mri_pet_geomc_pipeline_2026-08-09/cache
+  dataset_root: /fs04/scratch2/ea78/sizhew/Dataset/ds006148_mpf30_v1.0.5_full
+  legacy_pairings: /fs04/scratch2/ea78/sizhew/foundation_model/artifacts/preliminary30_v5_001/stages/data.qc/frozen_manifest/pairings.jsonl
+  legacy_splits: /fs04/scratch2/ea78/sizhew/foundation_model/artifacts/preliminary30_v5_001/stages/data.qc/frozen_manifest/splits.jsonl
+  legacy_pet128_manifest: /fs04/scratch2/ea78/sizhew/mri_pet_geometric_operator_feasibility/artifacts/mri_pet_geo_feasibility_a40_20260801T154801Z/stages/02.pet128/pet128/manifest.pet128.jsonl
+  sat3d_code_root: '/fs04/scratch2/ea78/sizhew/sat3d reference/code/SAT3D-slicer/sat3D'
+  sat3d_checkpoint: '/fs04/scratch2/ea78/sizhew/sat3d reference/weights/sam_model_dice_best.pth'
+  model_reference_128: /fs04/scratch2/ea78/sizhew/foundation_model/derivatives/brainfield-derivatives-v2/references/2156681e9cc53d6f/reference_mri128.nii.gz
+  model_mask_128: /fs04/scratch2/ea78/sizhew/foundation_model/derivatives/brainfield-derivatives-v2/references/2156681e9cc53d6f/reference_mri128_mask.nii.gz
+
+data:
+  cohort_mode: legacy_frozen_30
+  expected_subjects: 30
+  split_counts: {train: 20, validation: 5, test: 5}
+
+sat3d:
+  trainability: last_stage
+  initialization: pretrained
+
+geometry:
+  domain: fixed_template_volumetric_fem
+  nodes_target: 1024
+  modes: 128
+  token_grid: [8, 8, 8]
+  interpolation_neighbors: 8
+  interpolation_sigma_mm: 12.0
+  resolvent_radii_mm: [3.0, 6.0, 12.0, 24.0, 48.0]
+  normalize_spectrum: false
+  exact_complement: true
+
+model:
+  latent_dim: 128
+  metadata_dim: 4
+  geomc_hidden_dim: 256
+  geomc_scale_embedding_dim: 16
+  geomc_residual_scale: 0.10
+  geomc_blocks: 4
+
+masking:
+  hidden_fraction: 0.30
+  query_tokens: 128
+
+overfit:
+  max_updates: 50
+  minimum_relative_drop_report_only: 0.50
+
+training:
+  microbatch_size: 1
+  gradient_accumulation: 2
+  relation_cycle_length: 20
+  precision: bf16
+  warmup_updates: 100
+  validation_every: 100
+  checkpoint_every: 100
+  validation_max_examples: 40
+  validation_views: 2
+
+experiments:
+  - id: geomc
+    verified_pair_retention_fraction: 1.0
+    pairing_mode: verified
+    seeds: [0]
+    max_updates: 1200
+    planned_total_updates: 1200
+
+evaluation:
+  primary_experiment_id: geomc
+  required_model_diagnostics:
+    - signed_router
+    - parseval_additive_energy
+    - centered_scale_energy
+    - frame_closure
+    - complement_residual
+    - representation_retention
+  comparisons: []
+
+resources:
+  device: cuda
+  encoder_backend: sat3d
+  require_cuda: true
+  min_free_vram_gib: 0
+  min_free_ram_gib: 0
+  min_free_disk_gib: 0

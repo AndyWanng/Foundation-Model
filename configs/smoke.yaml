@@ -1,0 +1,179 @@
+schema_version: 1
+
+project:
+  name: mri_pet_geomc
+  method: shared_sat3d_geomc
+  seed: 20260809
+  scientific_use: false
+  claim_scope: implementation_smoke_only
+
+run:
+  mode: smoke
+  launch_dir: null
+
+# Findings are recorded in the report but do not stop later requested stages.
+# Only an execution error that makes a computation impossible may fail a stage.
+execution:
+  policy: exhaustive_nonblocking_v1
+  scientific_thresholds_block_execution: false
+  qc_findings_block_execution: false
+  smoke_test_findings_block_execution: false
+  overfit_findings_block_execution: false
+  experiment_failure_blocks_other_experiments: false
+
+paths:
+  artifacts_root: artifacts/smoke
+  derivatives_root: derivatives/smoke
+  cache_root: cache/smoke
+  dataset_root: ''
+  legacy_pairings: ''
+  legacy_splits: ''
+  legacy_pet128_manifest: ''
+  sat3d_code_root: ''
+  sat3d_checkpoint: ''
+  model_reference_128: ''
+  model_mask_128: ''
+
+data:
+  cohort_mode: synthetic
+  expected_subjects: 8
+  split_counts: {train: 4, validation: 2, test: 2}
+  synthetic_input_size: 16
+  input_normalization: brain_mask_zscore_v1
+  modalities: [mri, pet]
+  allow_pseudo_pairs: false
+  checksum: true
+
+preprocessing:
+  write_legacy_roots: false
+  pet128:
+    one_resample_only: true
+    relative_normalization: eroded_brain_relative_median_after_p005_p995_clip
+    quantification_claim: relative_fdg_only
+
+registration_qc:
+  policy: automatic_nonblocking_v1
+  manual_review_required: false
+  statistical_flags_block_training: false
+  affine_tolerance: 1.0e-5
+  minimum_support_voxels: 16
+  diagnostic_maximum_axis: 32
+  histogram_bins: 32
+  mask_dice_flag_below: 0.70
+  centroid_distance_mm_flag_above: 20.0
+  nmi_shift_margin_flag_below: 0.0
+
+sat3d:
+  builder: swin2
+  strict_checkpoint: true
+  expected_checkpoint_sha256: 362df25d57486ed001694d350bcc8ce3c32fc732e447a50bf17016d863ec5f72
+  expected_source_tree_sha256: f2c10b1fdef3ddb4026053794f57976944283e63fea364f1cb45bdd7fa3427a4
+  expected_feature_shape: [384, 8, 8, 8]
+  trainability: all
+  initialization: pretrained
+  use_native_activation_checkpoint: false
+
+geometry:
+  domain: synthetic_volumetric_fem
+  nodes_target: 64
+  modes: 16
+  token_grid: [4, 4, 4]
+  interpolation_neighbors: 8
+  interpolation_sigma_mm: 12.0
+  resolvent_radii_mm: [3.0, 8.0, 20.0]
+  normalize_spectrum: false
+  exact_complement: true
+
+model:
+  latent_dim: 32
+  metadata_dim: 4
+  geomc_hidden_dim: 64
+  geomc_scale_embedding_dim: 8
+  geomc_residual_scale: 0.10
+  geomc_blocks: 3
+
+geometry_embedding:
+  type: spectral
+  hidden_dim: 32
+  initial_scale: 0.05
+  trainable_scale: true
+
+inputs:
+  max_observations: 2
+  include_target_observation_probability: 0.50
+  aggregation: reliability_weighted_mean
+
+masking:
+  hidden_fraction: 0.30
+  query_tokens: 16
+  source_mask_before_encoder: true
+  normalization_uses_hidden_voxels: false
+
+overfit:
+  max_updates: 4
+  minimum_relative_drop_report_only: 0.0
+
+training:
+  objective: masked_huber_v1
+  microbatch_size: 1
+  gradient_accumulation: 1
+  relation_cycle_length: 4
+  precision: fp32
+  optimizer: adamw
+  encoder_learning_rate: 1.0e-5
+  model_learning_rate: 2.0e-4
+  weight_decay: 0.05
+  gradient_clip_norm: 1.0
+  warmup_updates: 1
+  validation_every: 1
+  checkpoint_every: 1
+  validation_max_examples: 8
+  validation_views: 1
+  validation_pairing_policy: experiment_relations
+  huber_beta: 1.0
+  ema_start: 0.996
+  ema_end: 0.9999
+  relation_sampling_weights:
+    mri_to_mri: 0.35
+    pet_to_pet: 0.35
+    mri_to_pet: 0.15
+    pet_to_mri: 0.15
+
+# The clean repository exposes exactly one main model. These fields name
+# its model setup; they do not select among historical families.
+experiments:
+  - id: geomc
+    verified_pair_retention_fraction: 1.0
+    pairing_mode: verified
+    seeds: [0]
+    max_updates: 4
+    planned_total_updates: 4
+
+evaluation:
+  aggregate_by_subject: true
+  validation_best_only: false
+  checkpoint_name: final.pt
+  checkpoint_policy: fixed_final_equal_update
+  fixed_reference: initial_target_encoder_v1
+  reference_alignment: global_subject_weighted_similarity_procrustes
+  alignment_fit_split: train
+  primary_experiment_id: geomc
+  query_mask_views: 2
+  required_model_diagnostics:
+    - signed_router
+    - parseval_additive_energy
+    - centered_scale_energy
+    - frame_closure
+    - complement_residual
+    - representation_retention
+  all_thresholds_report_only: true
+  bootstrap_resamples: 1000
+  comparisons: []
+
+resources:
+  device: cpu
+  encoder_backend: tiny
+  require_cuda: false
+  min_free_vram_gib: 0
+  min_free_ram_gib: 0
+  min_free_disk_gib: 0
