@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "mri-pet-geomc"
 version = "0.1.0"
-description = "Shared-SAT3D MRI/PET geometric mode-composition pipeline"
+description = "Shared-SAT3D GeoMC pipeline with formal resumable MRI/PET pretraining"
 readme = "README.md"
 requires-python = ">=3.10,<3.13"
 dependencies = [
@@ -20,6 +20,9 @@ dependencies = [
   "einops==0.8.2",
   "timm==1.0.28",
   "filelock==3.20.0",
+  "rich==14.1.0",
+  "pydicom==3.0.1",
+  "SimpleITK==2.5.2",
 ]
 
 [project.optional-dependencies]
@@ -27,6 +30,9 @@ dev = ["pytest==9.0.3"]
 
 [project.scripts]
 mri-pet-geomc = "mri_pet_geomc.cli:main"
+foundation-preprocess = "mri_pet_geomc.formal.cli:preprocess_main"
+foundation-train = "mri_pet_geomc.formal.cli:train_main"
+foundation-inspect = "mri_pet_geomc.formal.cli:inspect_main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

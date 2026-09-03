@@ -1,0 +1,309 @@
+# Independent 384-channel pretraining run; the existing image cache is unchanged.
+# Keep the workstation-specific raw-data roots identical to your original config.
+schema_version: 2
+
+project:
+  name: foundation_model_test_latent384
+  mode: workstation_strict_unpaired_v1
+  method: shared_sat3d_geomc_jepa3d
+  seed: 20260822
+  claim_scope: formal_24k_mri_pet_latent384_pretraining
+
+# Edit only the two raw-data roots after uploading to the workstation.  All
+# Metadata, SAT3D code/weights and the source reference are local-only assets.
+# Provision them at the project-relative paths below before inspect/preprocess/train.
+paths:
+  metadata_root: metadata
+  fomo_root: /data/datasets/FOMO_MRI
+  adni_pet_root: /data/datasets/ADNI_PET
+  cache_root: workstation_cache
+  run_root: runs/workstation_formal_latent384
+  sat3d_code_root: external/sat3d/SAT3D-slicer/sat3D
+  sat3d_checkpoint: external/sat3d/weights/sam_model_dice_best.pth
+  source_reference: external/reference/reference_mri128_1p5mm.nii.gz
+  source_reference_mask: external/reference/reference_mri128_mask_1p5mm.nii.gz
+
+data:
+  fomo_sources:
+    - PT001_ClevelandCCF
+    - PT005_ADHD_200
+    - PT014_CoRR
+    - PT015_MSD_BrainTumor
+    - PT021_IXI
+    - PT028_OASIS1
+  pet_manifests:
+    - Fully_Processed_Amyloid_PET_Manifest_26Jul2026.csv
+    - Fully_Processed_FDG_PET_Manifest_26Jul2026.csv
+    - Fully_Processed_Tau_PET_Manifest_26Jul2026.csv
+  include_adni_mri: false
+  allow_mri_pet_edges: false
+  physical_inner_join_only: true
+  split:
+    train: 0.8
+    validation: 0.1
+    test: 0.1
+    group_key: canonical_subject_id
+    seed: 20260822
+    balance_by_dataset: true
+  inventory_reference_counts:
+    enforce: false
+    fomo_observations: 14628
+    adni_pet_observations: 9258
+    total_observations: 23886
+
+preprocessing:
+  resume: true
+  continue_on_case_error: true
+  metadata_missing_policy: keep_with_missingness
+  unsupported_image_policy: exclude_and_record
+  structural_failure_policy: record_and_continue
+  target_shape: [128, 128, 128]
+  target_spacing_mm: [2.0, 2.0, 2.0]
+  target_orientation: RAS
+  preserve_reference_world_center: true
+  image_dtype: float16
+  image_format: npy
+  coverage_mask_format: packbits
+  workers: 8
+  worker_threads: 1
+  dcm2niix: dcm2niix
+  registration:
+    backend: SimpleITK
+    mode: simpleitk_rigid_affine
+    transform: rigid_affine
+    nonlinear: false
+    metric: mattes_mutual_information
+    sampling_fraction: 0.20
+    rigid_iterations: 100
+    affine_iterations: 100
+    threads_per_worker: 1
+    interpolation_mri: bspline
+    interpolation_pet: linear
+    interpolation_mask: nearest
+    extra_pet_smoothing: false
+    one_final_resample: true
+  cache:
+    atomic_writes: true
+    receipt_per_observation: true
+    retry_failed_on_resume: true
+    decoded_digest: true
+    shard_size: 128
+
+loader:
+  num_workers: 4
+  prefetch_factor: 2
+  persistent_workers: true
+  pin_memory: true
+  drop_last: false
+  no_replacement: true
+  exact_anchor_coverage: true
+  worker_cache_mib: 512
+  max_open_shards_per_worker: 2
+  companion_limit: 1
+
+metadata_conditioning:
+  dimension: 128
+  dropout_probability: 0.30
+  categorical_fields:
+    - modality
+    - mri_sequence
+    - mri_product
+    - pet_family
+    - exact_tracer
+    - dwi_representation
+    - mp2rage_component
+    - derived_flag
+  continuous_fields:
+    - native_spacing_x
+    - native_spacing_y
+    - native_spacing_z
+    - native_resolution_x
+    - native_resolution_y
+    - native_resolution_z
+  per_field_missingness: true
+  forbidden_fields:
+    - dataset_id
+    - site
+    - canonical_subject_id
+    - diagnosis
+    - age
+    - sex
+    - quality
+    - qc
+    - reliability
+
+model:
+  input_shape: [128, 128, 128]
+  latent_dim: 384
+  sat3d:
+    builder: swin2
+    initialization: pretrained
+    expected_checkpoint_sha256: 362df25d57486ed001694d350bcc8ce3c32fc732e447a50bf17016d863ec5f72
+    expected_source_tree_sha256: f2c10b1fdef3ddb4026053794f57976944283e63fea364f1cb45bdd7fa3427a4
+    trainability: all
+    activation_checkpointing: true
+    full_volume_input: true
+  adapters:
+    modality_stems: true
+    stem_hidden_channels: 8
+    stem_zero_initialized: true
+    stage_conditioned_bottlenecks: false
+    final_feature_conditioned_bottleneck: true
+    bottleneck_ratio: 0.25
+    additive_condition_bias: false
+  projector:
+    type: content_gated_residual
+    input_dim: 384
+    output_dim: 384
+    additive_condition_bias: false
+  geometry:
+    nodes_target: 1024
+    modes: 128
+    token_grid: [8, 8, 8]
+    interpolation_neighbors: 8
+    interpolation_sigma_mm: 12.0
+    resolvent_radii: [3.0, 6.0, 12.0, 24.0, 48.0]
+    exact_complement: true
+    geomc_blocks: 4
+    hidden_dim: 768
+    scale_embedding_dim: 16
+    residual_scale: 0.10
+    embedding:
+      type: spectral
+      hidden_dim: 64
+      initial_scale: 0.05
+      trainable_scale: true
+  fusion:
+    type: anchor_centric_gated
+    maximum_companions: 1
+    relation_embedding_dim: 32
+    hidden_dim: 128
+  predictor:
+    type: query_aware_3d_vit
+    embed_dim: 256
+    depth: 6
+    heads: 8
+    mlp_ratio: 4.0
+    max_queries: 128
+    drop_path: 0.10
+    physical_position_encoding: true
+    raw_sat3d_skip: false
+  ema:
+    includes: [stems, condition_encoder, encoder, feature_adapter, projector]
+    excludes: [anchor_companion_fusion, geometry_embedding, geomc, predictor, relation_embedding]
+
+masking:
+  query_tokens: 128
+  strategy: physical_multiblock_3d
+  hidden_fraction: 0.30
+  blocks: 2
+  coupled_across_companion: true
+  mask_before_online_normalization: true
+
+training:
+  device: cuda:0
+  precision: bf16
+  epochs: 50
+  # Conservative, unmeasured 96 GB starting point: 4 x 4 = 16 effective anchors.
+  # Tune only before starting this new run; this is not a VRAM-fit guarantee.
+  microbatch_size: 4
+  gradient_accumulation: 4
+  global_batch_size: 16
+  max_companions: 1
+  early_stopping: false
+  performance_gate: none
+  finish_fixed_horizon: true
+  gradient_clip_norm: 1.0
+  weight_decay: 0.05
+  optimizer: adamw
+  learning_rates:
+    sat3d_last_stage: 1.0e-5
+    sat3d_stage_multipliers: [0.35, 0.50, 0.70, 1.0]
+    sat3d_patch_embed_multiplier: 0.25
+    stems_adapters_projector: 1.0e-4
+    geomc_predictor: 2.0e-4
+  scheduler:
+    type: warmup_cosine
+    warmup_coverages: 2
+    horizon_coverages: 50
+    final_lr_ratio: 0.01
+  ema:
+    initial_momentum: 0.996
+    final_momentum: 0.9999
+    schedule: cosine
+  loss:
+    self_jepa: masked_huber
+    huber_beta: 1.0
+    companion_policy: context_only_for_anchor_self_jepa
+    same_session_cross_sequence_latent_equality_weight: 0.0
+    longitudinal_latent_equality_weight: 0.0
+    cross_tracer_weight: 0.0
+    mri_pet_weight: 0.0
+  relation_schedule:
+    self_only_coverages: [1, 2]
+    ramp_coverages: [3, 4, 5]
+    steady_start_coverage: 6
+    steady_mixture:
+      self_only: 0.50
+      same_session_cross_sequence: 0.30
+      longitudinal_same_acquisition: 0.15
+      same_session_repeat: 0.05
+  checkpoint:
+    every_updates: 500
+    atomic: true
+    keep_latest: true
+    keep_last: 3
+    keep_every_coverages: 5
+    keep_best: false
+    resume_exact_data_cursor: true
+
+validation:
+  health_every_coverage: true
+  health_anchor_count: 512
+  masks_per_anchor: 2
+  full_every_coverages: 5
+  aggregate_by_subject: true
+  modality_macro_weights: {mri: 0.5, pet: 0.5}
+  select_best_checkpoint: false
+  stop_training: false
+  test_only_after_training: true
+
+logging:
+  rich_progress: true
+  refresh_per_second: 5
+  jsonl_metrics: true
+  text_log: true
+  flush_each_event: true
+  step_log_every: 1
+  record:
+    - loss_total
+    - loss_self
+    - relation_stratified_self_jepa
+    - loss_mri
+    - loss_pet
+    - relation_type
+    - learning_rate_groups
+    - ema_momentum
+    - gradient_norm
+    - prediction_mean
+    - target_mean
+    - prediction_std
+    - target_std
+    - prediction_effective_rank
+    - target_effective_rank
+    - anchors_per_second
+    - encoded_volumes_per_second
+    - loader_wait_seconds
+    - cpu_rss_gib
+    - gpu_allocated_gib
+    - gpu_reserved_gib
+    - gpu_peak_allocated_gib
+    - gpu_peak_reserved_gib
+    - coverage_cursor
+
+resources:
+  single_gpu_first: true
+  expected_gpu: RTX_PRO_6000_Blackwell_96GB
+  vram_soft_limit_gib: 76
+  vram_soft_limit_is_warning_only: true
+  dataloader_cpu_threads_per_worker: 1

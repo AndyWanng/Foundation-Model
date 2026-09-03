@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "migration_id": "companion-fallback-and-configured-horizon-scheduler-v1",
+  "from_python_source_sha256": "56fb7d23ddbc02e7486bd9861ad78c42f5a0a50e184e1268f9c6e32a66d74060",
+  "to_python_source_sha256": "387f847a1da05c38891056d783083703988eaf2c80047ac73a3f34134c124855",
+  "checkpoint_contract_strategy": "retain_original_python_source_hash",
+  "runtime_behavior": "drop_only_optional_companion_when_anchor_coupled_mask_leaves_zero_visible_support;derive_warmup_updates_from_configured_coverage_horizon",
+  "scheduler_contract_correction": "warmup_updates=steps_per_coverage*configured_warmup_coverages"
+}

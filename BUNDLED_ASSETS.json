@@ -1,0 +1,31 @@
+{
+  "schema_version": 1,
+  "purpose": "Internal workstation-transfer provenance for the first formal MRI/PET run",
+  "resume_compatibility": {
+    "path": "RESUME_COMPATIBILITY.json",
+    "sha256": "e78b93d16d26f18067d91e94458c8b1d638278393bd14b237d435e2033248729",
+    "migration_id": "companion-fallback-and-configured-horizon-scheduler-v1"
+  },
+  "sat3d": {
+    "code_root": "external/sat3d/SAT3D-slicer/sat3D",
+    "python_file_count": 60,
+    "python_source_tree_sha256": "f2c10b1fdef3ddb4026053794f57976944283e63fea364f1cb45bdd7fa3427a4",
+    "source_tree_digest_rule": "sha256(concat(relative_posix_path_utf8, raw_sha256_bytes) for sorted *.py)",
+    "checkpoint": "external/sat3d/weights/sam_model_dice_best.pth",
+    "checkpoint_bytes": 147409540,
+    "checkpoint_sha256": "362df25d57486ed001694d350bcc8ce3c32fc732e447a50bf17016d863ec5f72"
+  },
+  "reference": {
+    "image": "external/reference/reference_mri128_1p5mm.nii.gz",
+    "image_sha256": "adf24b180ca98aff347f377a4a798b0fe5f3ac16e58276320bc74a44b6212256",
+    "mask": "external/reference/reference_mri128_mask_1p5mm.nii.gz",
+    "mask_sha256": "f7dcfd676cc752713c515000b78e8c17a669cfe26c9f157f99f69a78c53cff59"
+  },
+  "metadata": {
+    "root": "metadata",
+    "file_count": 27,
+    "bytes": 5366109,
+    "bundle_sha256": "7cce7060a77203e06bc6565185bd418d8a68b0cf80ec6e1490dda0e29ca0e234",
+    "bundle_digest_rule": "sha256(UTF-8 lines: relative_posix_path<TAB>file_sha256<TAB>bytes, sorted by path, joined by LF)"
+  }
+}

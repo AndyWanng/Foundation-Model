@@ -22,6 +22,12 @@ dist/
 artifacts/
 cache/
 derivatives/
+workstation_cache/
+runs/
+
+# Local-only formal-pretraining inputs and third-party assets
+external/
+metadata/
 
 # Machine-local configuration and tooling
 configs/server.local.yaml
